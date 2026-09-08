@@ -3,34 +3,33 @@ local TPS = game:GetService("TeleportService")
 local Http = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
 
--- 1. UI Yaratish
+-- UI Yaratish
 local ScreenGui = Instance.new("ScreenGui")
 local Frame = Instance.new("Frame")
 local Title = Instance.new("TextLabel")
 local MainList = Instance.new("ScrollingFrame")
 
 ScreenGui.Parent = game.CoreGui
-ScreenGui.Name = "Bunyodbek_Forest_Hub"
+ScreenGui.Name = "Bunyodbek_Escape_Keyboard_Hub"
 ScreenGui.ResetOnSpawn = false
 
 Frame.Parent = ScreenGui
-Frame.BackgroundColor3 = Color3.fromRGB(15, 25, 15)
+Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
 Frame.Position = UDim2.new(0.3, 0, 0.1, 0)
-Frame.Size = UDim2.new(0, 330, 0, 550)
+Frame.Size = UDim2.new(0, 340, 0, 560)
 Frame.Active = true
 Frame.Draggable = true
 Frame.BorderSizePixel = 3
-Frame.BorderColor3 = Color3.fromRGB(255, 165, 0)
+Frame.BorderColor3 = Color3.fromRGB(0, 170, 255)
 
 Title.Parent = Frame
-Title.Text = "99 NIGHTS FOREST HUB | K: Open"
+Title.Text = "ESCAPE KEYBOARD HUB | K: Hide"
 Title.Size = UDim2.new(1, 0, 0.08, 0)
 Title.TextColor3 = Color3.new(1, 1, 1)
-Title.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
+Title.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
 
--- X va K tugmalari
+-- X Tugmasi (Scriptni butunlay o'chirish)
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Parent = Frame
 CloseBtn.Text = "X"
@@ -38,11 +37,17 @@ CloseBtn.Size = UDim2.new(0, 30, 0, 30)
 CloseBtn.Position = UDim2.new(1, -35, 0, 5)
 CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 CloseBtn.TextColor3 = Color3.new(1, 1, 1)
-CloseBtn.MouseButton1Click:Connect(function() ScreenGui.Enabled = false end)
 
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- K Tugmasi (Menyuni yashirish va chiqarish)
 UIS.InputBegan:Connect(function(input, proc)
     if not proc and input.KeyCode == Enum.KeyCode.K then
-        ScreenGui.Enabled = not ScreenGui.Enabled
+        if ScreenGui and ScreenGui.Parent then
+            ScreenGui.Enabled = not ScreenGui.Enabled
+        end
     end
 end)
 
@@ -64,150 +69,148 @@ local function createButton(name, y, color, callback)
     return b
 end
 
--- --- FUNKSIYALAR BO'LIMI ---
+-- --- ESCAPE KEYBOARD FUNKSIYALARI ---
 
--- 1. CAMERA-RELATIVE FLY (Faqat WASD + Kamera yo'nalishi)
-local flying = false
-local flySpeed = 50
-local flyBtn = createButton("FLY (Kameraga Qarab Uchish): OFF", 0, Color3.fromRGB(80, 40, 0), function()
-    flying = not flying
-    flyBtn.Text = "FLY: " .. (flying and "ON" or "OFF")
-    flyBtn.BackgroundColor3 = flying and Color3.fromRGB(0, 100, 0) or Color3.fromRGB(80, 40, 0)
+-- 1. WORLD 2 AUTO WIN (Kafolatlangan Bounding/CFrame teleport)
+createButton("World 2: Auto Win (Fix)", 0, Color3.fromRGB(0, 120, 215), function()
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
     
-    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    
-    if flying then
-        local bv = Instance.new("BodyVelocity")
-        bv.Name = "ForestFlyVector"
-        bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-        bv.Velocity = Vector3.new(0,0,0)
-        bv.Parent = hrp
-        
-        task.spawn(function()
-            while flying and hrp and hrp:FindFirstChild("ForestFlyVector") do
-                local camCFrame = Camera.CFrame
-                local velocity = Vector3.new(0, 0, 0)
-                
-                if UIS:IsKeyDown(Enum.KeyCode.W) then velocity = velocity + camCFrame.LookVector end
-                if UIS:IsKeyDown(Enum.KeyCode.S) then velocity = velocity - camCFrame.LookVector end
-                if UIS:IsKeyDown(Enum.KeyCode.A) then velocity = velocity - camCFrame.RightVector end
-                if UIS:IsKeyDown(Enum.KeyCode.D) then velocity = velocity + camCFrame.RightVector end
-                
-                if velocity.Magnitude > 0 then
-                    hrp.ForestFlyVector.Velocity = velocity.Unit * flySpeed
-                else
-                    hrp.ForestFlyVector.Velocity = Vector3.new(0, 0, 0)
+    local targetCFrame = nil
+
+    -- 1-Usul: Xaritada "World2" yoki "World 2" papkasini topib, uning eng oxirgi blokini aniqlaydi
+    for _, folder in pairs(workspace:GetChildren()) do
+        local fName = folder.Name:lower()
+        if fName:find("world2") or fName:find("world 2") or fName:find("stage2") then
+            local furthestZ = -math.huge
+            local bestPart = nil
+            
+            for _, item in pairs(folder:GetDescendants()) do
+                if item:IsA("BasePart") then
+                    if item.Position.Z > furthestZ then
+                        furthestZ = item.Position.Z
+                        bestPart = item
+                    end
                 end
-                task.wait()
             end
-            if hrp:FindFirstChild("ForestFlyVector") then hrp.ForestFlyVector:Destroy() end
-        end)
-    else
-        if hrp:FindFirstChild("ForestFlyVector") then hrp.ForestFlyVector:Destroy() end
-    end
-end)
-
--- 2. CAMPFIRE-GA TELEPORT
-createButton("Teleport to Campfire", 50, Color3.fromRGB(200, 100, 0), function()
-    for _, v in pairs(workspace:GetDescendants()) do
-        if v.Name:lower():find("campfire") or v.Name:lower() == "fire" then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = v.CFrame * CFrame.new(0, 5, 0)
-            break
+            
+            if bestPart then
+                targetCFrame = bestPart.CFrame
+                break
+            end
         end
     end
-end)
 
--- 3. MASOFADAN INSTANT DARAXT CHOPISH (Joyingdan jilmaysan)
-createButton("Chop All Trees (Masofadan Instant)", 100, Color3.fromRGB(34, 139, 34), function()
-    local count = 0
-    for _, v in pairs(workspace:GetChildren()) do
-        if v.Name:lower():find("tree") or v.Name:lower():find("daraxt") then
-            pcall(function()
-                local cd = v:FindFirstChildOfClass("ClickDetector") or v:FindFirstChild([[ClickDetector]], true)
-                if cd then
-                    fireclickdetector(cd)
-                    count = count + 1
-                end
-                if v:FindFirstChild("Humanoid") then
-                    v.Humanoid.Health = 0
-                    count = count + 1
-                elseif v:FindFirstChild("Health") then
-                    v.Health.Value = 0
-                    count = count + 1
-                end
-            end)
-        end
-    end
-    game.StarterGui:SetCore("SendNotification", {
-        Title = "O'rmon Hub",
-        Text = count .. " ta daraxt uzoqdan chopildi!",
-        Duration = 3
-    })
-end)
-
--- 4. OLOVGA LOG VA BENZIN SOLISH
-createButton("Put Items to Fire (Log/Gas)", 150, Color3.fromRGB(230, 90, 0), function()
-    local campfire = workspace:FindFirstChild("Campfire") or workspace:FindFirstChild("Fire")
-    if campfire then
-        for _, item in pairs(workspace:GetChildren()) do
-            if item.Name:lower():find("log") or item.Name:lower():find("gas") or item.Name:lower():find("fuel") or item.Name:lower():find("benzin") then
-                local itemPart = item:IsA("Model") and item.PrimaryPart or item
-                if itemPart then
-                    itemPart.CFrame = campfire:IsA("Model") and campfire:GetModelCFrame() or campfire.CFrame
+    -- 2-Usul: Agar maxsus papka topilmasa, nomida "Win", "Finish", "End", "Door" so'zi bor obyektni qidiradi
+    if not targetCFrame then
+        for _, v in pairs(workspace:GetDescendants()) do
+            local name = v.Name:lower()
+            if name:find("win") or name:find("finish") or name:find("end") or name:find("door2") then
+                if v:IsA("BasePart") then
+                    targetCFrame = v.CFrame
+                    break
+                elseif v:IsA("Model") and v.PrimaryPart then
+                    targetCFrame = v.PrimaryPart.CFrame
+                    break
                 end
             end
         end
     end
-end)
 
--- 5. MAYDALAGICHGA SOLISH (Yog'och + Metallar)
-createButton("Put Items to Grinder (Wood/Metal)", 200, Color3.fromRGB(70, 70, 80), function()
-    local grinder
-    for _, v in pairs(workspace:GetDescendants()) do
-        if v.Name:lower():find("grinder") or v.Name:lower():find("chipper") or v.Name:lower():find("maydalagich") then
-            grinder = v
-            break
-        end
-    end
-    
-    if grinder then
-        local grinderCFrame = grinder:IsA("Model") and grinder:GetModelCFrame() or grinder.CFrame
-        local count = 0
-        for _, item in pairs(workspace:GetChildren()) do
-            -- Endi bu yerda Log (o'tin) bilan birga Metal, Iron (temir) va Steel (po'lat) ham qidiriladi
-            if item.Name:lower():find("log") or item.Name:lower():find("wood") or item.Name:lower():find("metal") or item.Name:lower():find("iron") or item.Name:lower():find("steel") then
-                local itemPart = item:IsA("Model") and item.PrimaryPart or item
-                if itemPart then 
-                    itemPart.CFrame = grinderCFrame 
-                    count = count + 1
-                end
-            end
-        end
+    -- Teleport qilish
+    if targetCFrame then
+        char.HumanoidRootPart.CFrame = targetCFrame * CFrame.new(0, 5, 0)
         game.StarterGui:SetCore("SendNotification", {
-            Title = "Maydalagich",
-            Text = count .. " ta o'tin va metal maydalagichga solindi!",
+            Title = "Escape Keyboard",
+            Text = "2-Dunyo oxiriga teleport bo'ldingiz!",
+            Duration = 3
+        })
+    else
+        game.StarterGui:SetCore("SendNotification", {
+            Title = "Xatolik",
+            Text = "World 2 oxiri topilmadi! (World 2 ga o'tib qayta bosing)",
             Duration = 3
         })
     end
 end)
 
--- 6. OVQATLARNI GULXANGA TELEPORT QILISH
-createButton("Teleport Food to Campfire", 250, Color3.fromRGB(255, 192, 203), function()
-    local campfire = workspace:FindFirstChild("Campfire") or workspace:FindFirstChild("Fire")
-    if campfire then
-        local fireCFrame = campfire:IsA("Model") and campfire:GetModelCFrame() or campfire.CFrame
-        for _, item in pairs(workspace:GetChildren()) do
-            if item.Name:lower():find("meat") or item.Name:lower():find("food") or item.Name:lower():find("fish") or item.Name:lower():find("raw") then
-                local itemPart = item:IsA("Model") and item.PrimaryPart or item
-                if itemPart then itemPart.CFrame = fireCFrame end
+-- 2. BLACK SECRET KEY OLISH
+createButton("Collect Black Secret Key", 50, Color3.fromRGB(40, 40, 40), function()
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    
+    local found = false
+    for _, v in pairs(workspace:GetDescendants()) do
+        local name = v.Name:lower()
+        if name:find("black") and (name:find("key") or name:find("secret")) then
+            local part = v:IsA("Model") and (v.PrimaryPart or v:FindFirstChildWhichIsA("BasePart")) or (v:IsA("BasePart") and v or nil)
+            if part then
+                char.HumanoidRootPart.CFrame = part.CFrame * CFrame.new(0, 2, 0)
+                found = true
+                local prompt = v:FindFirstChildOfClass("ProximityPrompt", true)
+                if prompt then fireproximityprompt(prompt) end
+                break
             end
         end
     end
+    
+    if found then
+        game.StarterGui:SetCore("SendNotification", {Title = "Kalit Tizimi", Text = "Black Secret Key olindi!", Duration = 3})
+    else
+        game.StarterGui:SetCore("SendNotification", {Title = "Xatolik", Text = "Black Secret Key topilmadi!", Duration = 3})
+    end
 end)
 
--- 7. SERVER HOP
-createButton("Server Hop", 300, Color3.fromRGB(50, 50, 50), function()
+-- 3. GOLDEN SPECIAL KEY OLISH
+createButton("Collect Golden Special Key", 100, Color3.fromRGB(218, 165, 32), function()
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    
+    local found = false
+    for _, v in pairs(workspace:GetDescendants()) do
+        local name = v.Name:lower()
+        if (name:find("gold") or name:find("golden")) and (name:find("key") or name:find("special")) then
+            local part = v:IsA("Model") and (v.PrimaryPart or v:FindFirstChildWhichIsA("BasePart")) or (v:IsA("BasePart") and v or nil)
+            if part then
+                char.HumanoidRootPart.CFrame = part.CFrame * CFrame.new(0, 2, 0)
+                found = true
+                local prompt = v:FindFirstChildOfClass("ProximityPrompt", true)
+                if prompt then fireproximityprompt(prompt) end
+                break
+            end
+        end
+    end
+    
+    if found then
+        game.StarterGui:SetCore("SendNotification", {Title = "Kalit Tizimi", Text = "Golden Special Key olindi!", Duration = 3})
+    else
+        game.StarterGui:SetCore("SendNotification", {Title = "Xatolik", Text = "Golden Special Key topilmadi!", Duration = 3})
+    end
+end)
+
+-- 4. BARCHA KALITLARNI YIG'ISH
+createButton("Collect All Keys", 150, Color3.fromRGB(138, 43, 226), function()
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    
+    local count = 0
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v.Name:lower():find("key") then
+            local part = v:IsA("Model") and (v.PrimaryPart or v:FindFirstChildWhichIsA("BasePart")) or (v:IsA("BasePart") and v or nil)
+            if part then
+                char.HumanoidRootPart.CFrame = part.CFrame * CFrame.new(0, 2, 0)
+                local prompt = v:FindFirstChildOfClass("ProximityPrompt", true)
+                if prompt then fireproximityprompt(prompt) end
+                count = count + 1
+                task.wait(0.3)
+            end
+        end
+    end
+    game.StarterGui:SetCore("SendNotification", {Title = "Kalit Tizimi", Text = count .. " ta kalit yig'ildi!", Duration = 3})
+end)
+
+-- 5. SERVER HOP
+createButton("Server Hop", 200, Color3.fromRGB(50, 50, 50), function()
     local servers = Http:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100")).data
     for _, s in pairs(servers) do
         if s.playing < s.maxPlayers and s.id ~= game.JobId then
